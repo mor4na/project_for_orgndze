@@ -1,0 +1,21 @@
+Support Files Count: 20
+  Support File 1 Offset: 3550280796
+  Support File 2 Offset: 0
+  Support File 3 Offset: 108344
+  Support File 4 Offset: 1
+  Support File 5 Offset: 22
+  Support File 6 Offset: 1262569556
+  Support File 7 Offset: 776097074
+  Support File 8 Offset: 825110576
+  Support File 9 Offset: 825307438
+  Support File 10 Offset: 1330398284
+  Support File 11 Offset: 1430781955
+  Support File 12 Offset: 1347301632
+  Support File 13 Offset: 200
+  Support File 14 Offset: 2945318912
+  Support File 15 Offset: 36298470
+  Support File 16 Offset: 511063893
+  Support File 17 Offset: 4025180489
+  Support File 18 Offset: 487441082
+  Support File 19 Offset: 120613856
+  Support File 20 Offset: 2122108834

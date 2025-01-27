@@ -1,0 +1,21 @@
+Data Files Count: 20
+  File 1 Offset: 28
+  File 2 Offset: 117542400
+  File 3 Offset: 0
+  File 4 Offset: 3673344
+  File 5 Offset: 0
+  File 6 Offset: 343043957
+  File 7 Offset: 1952787826
+  File 8 Offset: 1970038061
+  File 9 Offset: 1718185061
+  File 10 Offset: 778728303
+  File 11 Offset: 1845494608
+  File 12 Offset: 1311834112
+  File 13 Offset: 13868284
+  File 14 Offset: 1543503872
+  File 15 Offset: 423
+  File 16 Offset: 939524096
+  File 17 Offset: 16777216
+  File 18 Offset: 374030664
+  File 19 Offset: 1412317773
+  File 20 Offset: 842083888
