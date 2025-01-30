@@ -51,8 +51,6 @@ void parse_file(const char *filename) {
     printf("  Pointer to Target HW IDs: %u\n", header.target_hw_ids_ptr);
     printf("  Pointer to Data Files: %u\n", header.data_files_ptr);
     printf("  Pointer to Support Files: %u\n", header.support_files_ptr);
-    printf("\nProcessing Load PN Length Section:\n");
-    parse_load_pn_length(file, header.load_pn_length_ptr);
     printf("\n");
 
     // Переходим к нужным секциям, если указатели не ноль
@@ -65,6 +63,8 @@ void parse_file(const char *filename) {
     if (header.support_files_ptr) {
         parse_support_files(file, header.support_files_ptr, file_size);
     }
+
+    parse_load_pn_length(file, header.load_pn_length_ptr);
 
     fclose(file);
 }
@@ -125,6 +125,7 @@ void parse_load_pn_length(FILE *file, uint32_t load_pn_length_ptr) {
         return;
     }
 
+    printf("\n**Add **\n");
     printf("\nProcessing Load PN Length Section:\n");
     printf("Seeking to Load PN Length section at offset: %u\n", load_pn_length_ptr);
 
