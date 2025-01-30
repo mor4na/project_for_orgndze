@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "module.h"
 
-// Конвертация 32-битного Big Endian в Little Endian
+    // Конвертация 32-битного Big Endian в Little Endian
 uint32_t convert_endian_32(uint32_t value) {
     return ((value >> 24) & 0xFF) |
            ((value >> 8) & 0xFF00) |
@@ -11,7 +11,7 @@ uint32_t convert_endian_32(uint32_t value) {
            ((value << 24) & 0xFF000000);
 }
 
-// Конвертация 16-битного Big Endian в Little Endian
+    // Конвертация 16-битного Big Endian в Little Endian
 uint16_t convert_endian_16(uint16_t value) {
     return (value >> 8) | (value << 8);
 }
@@ -51,6 +51,8 @@ void parse_file(const char *filename) {
     printf("  Pointer to Target HW IDs: %u\n", header.target_hw_ids_ptr);
     printf("  Pointer to Data Files: %u\n", header.data_files_ptr);
     printf("  Pointer to Support Files: %u\n", header.support_files_ptr);
+    printf("\nProcessing Load PN Length Section:\n");
+    parse_load_pn_length(file, header.load_pn_length_ptr);
     printf("\n");
 
     // Переходим к нужным секциям, если указатели не ноль
@@ -115,4 +117,24 @@ void parse_support_files(FILE *file, uint32_t ptr_in_words, unsigned long file_s
     uint16_t count = convert_endian_16(count_raw);
 
     printf("Support Files Count: %u\n", count);
+}
+
+void parse_load_pn_length(FILE *file, uint32_t load_pn_length_ptr) {
+    if (load_pn_length_ptr == 0) {
+        printf("No Load PN Length section available.\n");
+        return;
+    }
+
+    printf("\nProcessing Load PN Length Section:\n");
+    printf("Seeking to Load PN Length section at offset: %u\n", load_pn_length_ptr);
+
+    // Перейти к нужному смещению
+    fseek(file, load_pn_length_ptr * 2, SEEK_SET); // Переводим из слов в байты
+
+    // Читаем 16-битное значение
+    uint16_t load_pn_length;
+    fread(&load_pn_length, sizeof(uint16_t), 1, file);
+    load_pn_length = convert_endian_16(load_pn_length);
+
+    printf("Load PN Length: %u characters\n", load_pn_length);
 }
