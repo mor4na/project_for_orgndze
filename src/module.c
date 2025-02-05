@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "module.h"
 
-    // Конвертация 32-битного Big Endian в Little Endian
+// Функция для преобразования 32-битного числа из Big Endian в Little Endian
 uint32_t convert_endian_32(uint32_t value) {
     return ((value >> 24) & 0xFF) |
            ((value >> 8) & 0xFF00) |
@@ -11,29 +11,40 @@ uint32_t convert_endian_32(uint32_t value) {
            ((value << 24) & 0xFF000000);
 }
 
-    // Конвертация 16-битного Big Endian в Little Endian
+// Функция для преобразования 16-битного числа из Big Endian в Little Endian
 uint16_t convert_endian_16(uint16_t value) {
     return (value >> 8) | (value << 8);
 }
 
-void parse_file(const char *filename) {
+// Основная функция парсинга файла
+int parse_file(const char *filename, LUHData *parsed_data) {
+    if (!parsed_data) {
+        printf("Invalid output data structure.\n");
+        return 0;
+    }
+    // Открываем файл в бинарном режиме
     FILE *file = fopen(filename, "rb");
     if (!file) {
         printf("Could not open file: %s\n", filename);
-        return;
+        return 0;
     }
 
-    // Узнаем размер файла
+    // Определяем размер файла
     fseek(file, 0, SEEK_END);
     unsigned long file_size = ftell(file);
     rewind(file);
+
     printf("File: %s, size: %lu bytes\n", filename, file_size);
 
-    // Считываем заголовок
+    // Читаем заголовок файла
     LUHHeader header;
-    fread(&header, sizeof(LUHHeader), 1, file);
+    if (fread(&header, sizeof(LUHHeader), 1, file) != 1) {
+        printf("Error reading file header.\n");
+        fclose(file);
+        return 0;
+    }
 
-    // Переводим поля заголовка
+    // Меняем порядок байтов в заголовке (если нужно)
     header.header_length = convert_endian_32(header.header_length);
     header.file_format_version = convert_endian_16(header.file_format_version);
     header.part_flags = convert_endian_16(header.part_flags);
@@ -43,99 +54,126 @@ void parse_file(const char *filename) {
     header.support_files_ptr = convert_endian_32(header.support_files_ptr);
     header.user_defined_data_ptr = convert_endian_32(header.user_defined_data_ptr);
 
-    // Вывод основных полей заголовка
+    // Записываем заголовок в структуру
+    parsed_data->header = header;
+
+    // Вывод информации о заголовке
     printf("\nHeader Info:\n");
     printf("  Header Length (words): %u\n", header.header_length);
     printf("  File Format Version: 0x%X\n", header.file_format_version);
     printf("  Part Flags: 0x%X\n", header.part_flags);
-    printf("  Pointer to Target HW IDs: %u\n", header.target_hw_ids_ptr);
-    printf("  Pointer to Data Files: %u\n", header.data_files_ptr);
-    printf("  Pointer to Support Files: %u\n", header.support_files_ptr);
-    printf("\n");
 
-    // Переходим к нужным секциям, если указатели не ноль
+    // Если есть указатели на секции, вызываем их парсинг
     if (header.target_hw_ids_ptr) {
-        parse_target_hw_ids(file, header.target_hw_ids_ptr, file_size);
+        parsed_data->target_hw_count = parse_section(file, header.target_hw_ids_ptr, file_size, "Target HW IDs");
     }
+
     if (header.data_files_ptr) {
-        parse_data_files(file, header.data_files_ptr, file_size);
+        parsed_data->data_files_count = parse_data_files(file, header.data_files_ptr, file_size);
     }
+
     if (header.support_files_ptr) {
-        parse_support_files(file, header.support_files_ptr, file_size);
+        parsed_data->support_files_count = parse_support_files(file, header.support_files_ptr, file_size);
     }
 
-    parse_load_pn_length(file, header.load_pn_length_ptr);
-
+    // Закрыть файл
     fclose(file);
+    return 1;
 }
 
-void parse_target_hw_ids(FILE *file, uint32_t ptr_in_words, unsigned long file_size) {
-    // Смещение в байтах = ptr_in_words * 2
+// Функция для парсинга секции с указателем 
+uint16_t parse_section(FILE *file, uint32_t ptr_in_words, unsigned long file_size, const char *section_name) {
     uint32_t offset = ptr_in_words * 2;
     if (offset + sizeof(uint16_t) > file_size) {
-        printf("Target HW IDs pointer out of bounds.\n");
-        return;
+        printf("%s pointer out of bounds.\n", section_name);
+        return 0;
     }
 
+    // Переходим к нужной позиции в файле
     fseek(file, offset, SEEK_SET);
 
-    // Считываем 2 байта (кол-во HW ID)
+    // Количество элементов в секции
     uint16_t count_raw;
-    fread(&count_raw, sizeof(uint16_t), 1, file);
+    if (fread(&count_raw, sizeof(uint16_t), 1, file) != 1) {
+        printf("Error reading %s count.\n", section_name);
+        return 0;
+    }
     uint16_t count = convert_endian_16(count_raw);
 
-    printf("Target HW IDs Count: %u\n", count);
+    printf("%s Count: %u\n", section_name, count);
+    
+    return count;
 }
 
-void parse_data_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size) {
+// Функция для парсинга 
+uint16_t parse_data_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size) {
     uint32_t offset = ptr_in_words * 2;
     if (offset + sizeof(uint16_t) > file_size) {
         printf("Data Files pointer out of bounds.\n");
-        return;
+        return 0;
     }
 
     fseek(file, offset, SEEK_SET);
 
-    uint16_t count_raw;
-    fread(&count_raw, sizeof(uint16_t), 1, file);
-    uint16_t count = convert_endian_16(count_raw);
+    uint16_t count;
+    fread(&count, sizeof(uint16_t), 1, file);
+    count = convert_endian_16(count);
 
     printf("Data Files Count: %u\n", count);
+    
+    for (uint16_t i = 0; i < count; i++) {
+        uint8_t data[8];  // 8 байт
+        if (fread(data, 1, 8, file) != 8) {
+            printf("Error reading Data File entry %u.\n", i);
+            break;
+        }
+
+        printf("  Data File %u: ", i);
+        for (int j = 0; j < 8; j++) {
+            printf("%02X ", data[j]);
+        }
+        printf("\n");
+    }
+
+    return count;
 }
 
-void parse_support_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size) {
+// Функция для парсинга 
+uint16_t parse_support_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size) {
     uint32_t offset = ptr_in_words * 2;
     if (offset + sizeof(uint16_t) > file_size) {
         printf("Support Files pointer out of bounds.\n");
-        return;
+        return 0;
     }
 
     fseek(file, offset, SEEK_SET);
 
-    uint16_t count_raw;
-    fread(&count_raw, sizeof(uint16_t), 1, file);
-    uint16_t count = convert_endian_16(count_raw);
+    uint16_t count;
+    fread(&count, sizeof(uint16_t), 1, file);
+    count = convert_endian_16(count);
 
     printf("Support Files Count: %u\n", count);
-}
+    
+    for (uint16_t i = 0; i < count; i++) {
+        uint8_t header[2];  // Заголовок записи (2 байта)
+        uint8_t body[6];    // Основные данные (6 байт)
 
-void parse_load_pn_length(FILE *file, uint32_t load_pn_length_ptr) {
-    if (load_pn_length_ptr == 0) {
-        printf("No Load PN Length section available.\n");
-        return;
+        if (fread(header, 1, 2, file) != 2) {
+            printf("Error reading Support File header %u.\n", i);
+            break;
+        }
+
+        if (fread(body, 1, 6, file) != 6) {
+            printf("Error reading Support File body %u.\n", i);
+            break;
+        }
+
+        printf("  Support File %u: Header %02X%02X | Data: ", i, header[0], header[1]);
+        for (int j = 0; j < 6; j++) {
+            printf("%02X ", body[j]);
+        }
+        printf("\n");
     }
 
-    printf("\n**Add **\n");
-    printf("\nProcessing Load PN Length Section:\n");
-    printf("Seeking to Load PN Length section at offset: %u\n", load_pn_length_ptr);
-
-    // Перейти к нужному смещению
-    fseek(file, load_pn_length_ptr * 2, SEEK_SET); // Переводим из слов в байты
-
-    // Читаем 16-битное значение
-    uint16_t load_pn_length;
-    fread(&load_pn_length, sizeof(uint16_t), 1, file);
-    load_pn_length = convert_endian_16(load_pn_length);
-
-    printf("Load PN Length: %u characters\n", load_pn_length);
+    return count;
 }
