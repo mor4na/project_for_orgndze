@@ -19,7 +19,6 @@ uint16_t convert_endian_16(uint16_t value) {
 // Функция для вывода данных в текстовом или HEX формате
 void print_data_as_text(uint8_t *data, size_t length) {
     size_t text_start = 0;
-    
     // Пропускаем неотображаемые символы в начале (служебные байты)
     while (text_start < length && (data[text_start] < 32 || data[text_start] > 126)) {
         text_start++;
@@ -69,12 +68,32 @@ uint16_t parse_section(FILE *file, uint32_t ptr_in_words, unsigned long file_siz
 // Функция парсинга Data Files
 uint16_t parse_data_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size) {
     uint32_t offset = ptr_in_words * 2;
-    if (offset + 16 > file_size) return 0;
+    if (offset + 2 > file_size) return 0;
 
     fseek(file, offset, SEEK_SET);
-    uint8_t data[16];
-    fread(data, 1, 16, file);
-    print_data_as_text(data, 16);
+    uint16_t length_raw;
+    if (fread(&length_raw, sizeof(uint16_t), 1, file) != 1) {
+        printf("Error reading Data File Length.\n");
+        return 0;
+    }
+    uint16_t length = convert_endian_16(length_raw);
+
+    printf("  Data File Length (Bytes): %u\n", length);
+
+    if (offset + 2 + length > file_size) {
+        printf("Error: Data File Length exceeds file size.\n");
+        return 0;
+    }
+
+    uint8_t *data = malloc(length);
+    if (!data) {
+        printf("Memory allocation error.\n");
+        return 0;
+    }
+
+    fread(data, 1, length, file);
+    print_data_as_text(data, length);
+    free(data);
     return 1;
 }
 
