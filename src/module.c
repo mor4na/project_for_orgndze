@@ -16,7 +16,7 @@ uint16_t convert_endian_16(uint16_t value) {
     return (value >> 8) | (value << 8);
 }
 
-// Функция для вывода данных в текстовом или HEX формате
+// Функция для вывода данных в текстовом или HEX формате с интерпретацией в десятичном формате
 void print_data_as_text(uint8_t *data, size_t length) {
     size_t text_start = 0;
     // Пропускаем неотображаемые символы в начале (служебные байты)
@@ -42,6 +42,14 @@ void print_data_as_text(uint8_t *data, size_t length) {
             printf("%02X ", data[i]);
         }
         printf("\n");
+
+        // Интерпретирю данные как числа и выводим их
+        if (length == 2) {
+            uint16_t value = (data[0] << 8) | data[1];
+            printf("  Interpreted Data (decimal): %u\n", value);
+        } else if (length == 1) {
+            printf("  Interpreted Data (decimal): %u\n", data[0]);
+        }
     }
 }
 
