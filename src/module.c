@@ -16,124 +16,87 @@ uint16_t convert_endian_16(uint16_t value) {
     return (value >> 8) | (value << 8);
 }
 
-// Функция для вывода данных в текстовом или HEX формате с интерпретацией в десятичном формате
-void print_data_as_text(uint8_t *data, size_t length) {
-    size_t text_start;
-    size_t text_length;
-    size_t i;
-
-    text_start = 0;
-    while (text_start < length && (data[text_start] < 32 || data[text_start] > 126)) {
-        text_start++;
-    }
-
-    text_length = 0;
-    for (i = text_start; i < length; i++) {
-        if (data[i] >= 32 && data[i] <= 126) {
-            text_length++;
-        }
-    }
-
-    if ((float)text_length / (length - text_start) > 0.9) {
-        printf("  Data (text): \"");
-        fwrite(data + text_start, 1, length - text_start, stdout);
-        printf("\"\n");
-    } else {
-        printf("  Data (hex): ");
-        for (i = 0; i < length; i++) {
-            printf("%02X ", data[i]);
-        }
-        printf("\n");
-    }
-}
-
-// Функция для чтения количества записей в разделе
-uint16_t parse_section(FILE *file, uint32_t ptr_in_words, unsigned long file_size, const char *section_name) {
-    uint32_t offset;
-    uint16_t count_raw;
-    uint16_t count;
-
-    offset = ptr_in_words * 2; // Переводим слова в байты
-    if (offset + sizeof(uint16_t) > file_size) {
-        printf("%s pointer out of bounds.\n", section_name);
-        return 0;
-    }
-
-    fseek(file, offset, SEEK_SET);
-    if (fread(&count_raw, sizeof(uint16_t), 1, file) != 1) {
-        printf("Error reading %s count.\n", section_name);
-        return 0;
-    }
-    count = convert_endian_16(count_raw);
-
-    printf("%s Count: %u\n", section_name, count);
-    return count;
-}
-
 // Функция парсинга Data Files
 uint16_t parse_data_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size) {
-    uint32_t offset;
-    uint16_t length_raw;
-    uint16_t length;
-    uint8_t *data;
-
-    offset = ptr_in_words * 2;
-    if (offset + 2 > file_size) return 0;
+    uint32_t offset = ptr_in_words * 2;
+    if (offset + 8 > file_size) return 0;
 
     fseek(file, offset, SEEK_SET);
-    if (fread(&length_raw, sizeof(uint16_t), 1, file) != 1) {
+    uint32_t data_file_length_raw;
+    if (fread(&data_file_length_raw, sizeof(uint32_t), 1, file) != 1) {    
         printf("Error reading Data File Length.\n");
         return 0;
     }
-    length = convert_endian_16(length_raw);
+    uint32_t data_file_length = convert_endian_32(data_file_length_raw) & 0xFFFF; // Берём только 2 байта
 
-    printf("  Data File Length (Bytes): %u\n", length);
+    // Вывод "сырых" байтов перед интерпретацией
+    printf("  Raw Data Length Bytes (hex): ");
+    uint8_t *raw_length_bytes = (uint8_t*)&data_file_length_raw;
+    for (size_t i = 0; i < sizeof(uint64_t); i++) {
+        printf("%02X ", raw_length_bytes[i]);
+    }
+    printf("\n");
 
-    if (offset + 2 + length > file_size) {
+    printf("  Data File Length (Bytes): %llu\n", (unsigned long long) data_file_length);
+
+    if (offset + 8 + data_file_length > file_size) {
         printf("Error: Data File Length exceeds file size.\n");
         return 0;
     }
 
-    data = malloc(length);
+    uint8_t *data = malloc(data_file_length);
     if (!data) {
         printf("Memory allocation error.\n");
         return 0;
     }
+    fread(data, 1, data_file_length, file);
+    
+    printf("  Data (hex): ");
+    for (size_t i = 0; i < data_file_length; i++) {
+        printf("%02X ", data[i]);
+    }
+    printf("\n");
 
-    fread(data, 1, length, file);
-    print_data_as_text(data, length);
+    // Вывод интерпретированных данных в десятичном формате
+    uint32_t interpreted_value = 0;
+    for (size_t i = 0; i < data_file_length; i++) {
+        interpreted_value = (interpreted_value << 8) | data[i];
+    }
+
+    printf("  Interpreted Data: ");
+    for (size_t i = 0; i < data_file_length; i++) {
+        if (data[i] >= 32 && data[i] <= 126) { // ASCII символы, проверить функцию если будет ошибка ввывода !!!ВАЖНО!!!
+            printf("%c", data[i]);  // Вывод как текст
+        } else {
+            printf("%02X ", data[i]);  // Если не текст, вывод как HEX
+        }
+    }
+    printf("\n");    
+
     free(data);
     return 1;
 }
 
-// Функция парсинга Support Files (использует ту же логику, что Data Files)
-uint16_t parse_support_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size) {
-    return parse_data_files(file, ptr_in_words, file_size);
-}
-
 // Главная функция парсинга файла
 int parse_file(const char *filename, LUHData *parsed_data) {
-    FILE *file;
-    unsigned long file_size;
-    LUHHeader header;
-
     if (!parsed_data) {
         printf("Invalid output data structure.\n");
         return 0;
     }
 
-    file = fopen(filename, "rb");
+    FILE *file = fopen(filename, "rb");
     if (!file) {
         printf("Could not open file: %s\n", filename);
         return 0;
     }
 
     fseek(file, 0, SEEK_END);
-    file_size = ftell(file);
+    unsigned long file_size = ftell(file);
     rewind(file);
 
     printf("File: %s, size: %lu bytes\n", filename, file_size);
 
+    LUHHeader header;
     if (fread(&header, sizeof(LUHHeader), 1, file) != 1) {
         printf("Error reading file header.\n");
         fclose(file);
@@ -144,11 +107,7 @@ int parse_file(const char *filename, LUHData *parsed_data) {
     header.header_length = convert_endian_32(header.header_length);
     header.file_format_version = convert_endian_16(header.file_format_version);
     header.part_flags = convert_endian_16(header.part_flags);
-    header.load_pn_length_ptr = convert_endian_32(header.load_pn_length_ptr);
-    header.target_hw_ids_ptr = convert_endian_32(header.target_hw_ids_ptr);
     header.data_files_ptr = convert_endian_32(header.data_files_ptr);
-    header.support_files_ptr = convert_endian_32(header.support_files_ptr);
-    header.user_defined_data_ptr = convert_endian_32(header.user_defined_data_ptr);
 
     parsed_data->header = header;
 
@@ -157,17 +116,8 @@ int parse_file(const char *filename, LUHData *parsed_data) {
     printf("  File Format Version: 0x%X\n", header.file_format_version);
     printf("  Part Flags: 0x%X\n", header.part_flags);
 
-    // Парсим секции файла
-    if (header.target_hw_ids_ptr) {
-        parsed_data->target_hw_count = parse_section(file, header.target_hw_ids_ptr, file_size, "Target HW IDs");
-    }
-
     if (header.data_files_ptr) {
         parsed_data->data_files_count = parse_data_files(file, header.data_files_ptr, file_size);
-    }
-
-    if (header.support_files_ptr) {
-        parsed_data->support_files_count = parse_support_files(file, header.support_files_ptr, file_size);
     }
 
     fclose(file);
