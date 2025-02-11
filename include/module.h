@@ -22,6 +22,8 @@ typedef struct {
     uint16_t target_hw_count;     // Количество целевых HW ID
     uint16_t data_files_count;    // Количество файлов данных
     uint16_t support_files_count; // Количество вспомогательных файлов
+    uint32_t data_files_size;     // Общий размер файлов данных
+    uint32_t support_files_size;  // Общий размер вспомогательных файлов
 } LUHData;
 
 // Функции для преобразования Endian
@@ -33,7 +35,7 @@ int parse_file(const char *filename, LUHData *parsed_data);
 
 // Функции для парсинга различных секций файла
 uint16_t parse_section(FILE *file, uint32_t ptr_in_words, unsigned long file_size, const char *section_name);
-uint16_t parse_data_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size);
-uint16_t parse_support_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size);
+uint16_t parse_data_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size, uint32_t *total_size);
+uint16_t parse_support_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size, uint32_t *total_size);
 
 #endif // MODULE_H

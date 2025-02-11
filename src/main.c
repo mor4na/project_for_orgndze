@@ -15,6 +15,9 @@ int main() {
     // Проверяем, успешно ли открыт файл и можно ли его парсить
     if (parse_file(filename, &parsed_data)) {
         printf("\nFile parsed successfully.\n");
+        printf("Total Data Files Size: %u bytes\n", parsed_data.data_files_size);
+        printf("Total Support Files Size: %u bytes\n", parsed_data.support_files_size);
+        printf("Total Combined Size: %u bytes\n", parsed_data.data_files_size + parsed_data.support_files_size);
     } else {
         printf("Error parsing file.\n");
     }
@@ -23,5 +26,3 @@ int main() {
     printf("Program finished.\n");
     return 0;
 }
-
-
