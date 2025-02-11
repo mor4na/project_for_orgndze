@@ -17,14 +17,16 @@ uint16_t convert_endian_16(uint16_t value) {
 }
 
 // Функция парсинга Data Files
-uint16_t parse_data_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size, uint32_t *total_size) {
+uint16_t parse_data_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size, uint32_t *total_size, uint16_t *file_count) {
     uint32_t offset = ptr_in_words * 2;
     if (offset + 8 > file_size) return 0;
 
     fseek(file, offset, SEEK_SET);
     uint32_t data_file_length_raw;
+    *file_count = 0;
     while (offset + 8 <= file_size) {
-        printf("Parsing Data File at offset: %u\n", offset);
+        (*file_count)++;
+        printf("Processing Data File Directory Entry %u at offset: %u\n", *file_count, offset);
         
         if (fread(&data_file_length_raw, sizeof(uint32_t), 1, file) != 1) return 0;
         uint32_t data_file_length = convert_endian_32(data_file_length_raw) & 0xFFFF;
@@ -37,14 +39,16 @@ uint16_t parse_data_files(FILE *file, uint32_t ptr_in_words, unsigned long file_
 }
 
 // Функция парсинга Support Files
-uint16_t parse_support_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size, uint32_t *total_size) {
+uint16_t parse_support_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size, uint32_t *total_size, uint16_t *file_count) {
     uint32_t offset = ptr_in_words * 2;
     if (offset + 8 > file_size) return 0;
 
     fseek(file, offset, SEEK_SET);
     uint32_t support_file_length_raw;
+    *file_count = 0;
     while (offset + 8 <= file_size) {
-        printf("Parsing Support File at offset: %u\n", offset);
+        (*file_count)++;
+        printf("Processing Support File Directory Entry %u at offset: %u\n", *file_count, offset);
         
         if (fread(&support_file_length_raw, sizeof(uint32_t), 1, file) != 1) return 0;
         uint32_t support_file_length = convert_endian_32(support_file_length_raw) & 0xFFFF;
@@ -80,13 +84,18 @@ int parse_file(const char *filename, LUHData *parsed_data) {
     parsed_data->header = header;
     parsed_data->data_files_size = 0;
     parsed_data->support_files_size = 0;
+    parsed_data->data_files_count = 0;
+    parsed_data->support_files_count = 0;
 
     if (header.data_files_ptr) {
-        parse_data_files(file, header.data_files_ptr, file_size, &parsed_data->data_files_size);
+        parse_data_files(file, header.data_files_ptr, file_size, &parsed_data->data_files_size, &parsed_data->data_files_count);
     }
     if (header.support_files_ptr) {
-        parse_support_files(file, header.support_files_ptr, file_size, &parsed_data->support_files_size);
+        parse_support_files(file, header.support_files_ptr, file_size, &parsed_data->support_files_size, &parsed_data->support_files_count);
     }
+
+    printf("Total Data Files Processed: %u\n", parsed_data->data_files_count);
+    printf("Total Support Files Processed: %u\n", parsed_data->support_files_count);
 
     fclose(file);
     return 1;

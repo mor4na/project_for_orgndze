@@ -35,7 +35,7 @@ int parse_file(const char *filename, LUHData *parsed_data);
 
 // Функции для парсинга различных секций файла
 uint16_t parse_section(FILE *file, uint32_t ptr_in_words, unsigned long file_size, const char *section_name);
-uint16_t parse_data_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size, uint32_t *total_size);
-uint16_t parse_support_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size, uint32_t *total_size);
+uint16_t parse_data_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size, uint32_t *total_size, uint16_t *file_count);
+uint16_t parse_support_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size, uint32_t *total_size, uint16_t *file_count);
 
 #endif // MODULE_H
