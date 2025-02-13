@@ -4,38 +4,65 @@
 #include <stdint.h>
 #include <stdio.h>
 
-// Структура заголовка файла LUH
+// Заголовок LUH (поля уже в little-endian)
 typedef struct {
-    uint32_t header_length;       // Длина заголовка в словах
-    uint16_t file_format_version; // Версия формата файла
-    uint16_t part_flags;          // Флаги части
-    uint32_t load_pn_length_ptr;  // Указатель на длину PN загрузки
-    uint32_t target_hw_ids_ptr;   // Указатель на идентификаторы аппаратного обеспечения
-    uint32_t data_files_ptr;      // Указатель на файлы данных
-    uint32_t support_files_ptr;   // Указатель на вспомогательные файлы
-    uint32_t user_defined_data_ptr;// Указатель на пользовательские данные
+    uint32_t header_length;       
+    uint16_t file_format_version; 
+    uint16_t part_flags;          
+    uint32_t load_pn_length_ptr;  
+    uint32_t target_hw_ids_ptr;   
+    uint32_t data_files_ptr;      
+    uint32_t support_files_ptr;   
+    uint32_t user_defined_data_ptr;
 } LUHHeader;
 
-// Структура для хранения распарсенных данных
+// Информация о Data File
 typedef struct {
-    LUHHeader header;             // Заголовок файла
-    uint16_t target_hw_count;     // Количество целевых HW ID
-    uint16_t data_files_count;    // Количество файлов данных
-    uint16_t support_files_count; // Количество вспомогательных файлов
-    uint32_t data_files_size;     // Общий размер файлов данных
-    uint32_t support_files_size;  // Общий размер вспомогательных файлов
+    char *name;
+    char *pn;
+    uint32_t lengthWords;       // длина в 16-битных словах
+    uint16_t crc;
+    uint64_t lengthBytes;       // длина в байтах
+    uint16_t checkValueLen;
+    uint16_t checkValueType;
+} DataFileInfo;
+
+// Информация о Support File
+typedef struct {
+    char *name;
+    char *pn;
+    uint32_t lengthBytes;       
+    uint16_t crc;
+    uint16_t checkValueLen;
+    uint16_t checkValueType;
+} SupportFileInfo;
+
+// Основная структура данных
+typedef struct {
+    LUHHeader header;
+    uint16_t target_hw_count;
+    uint16_t data_files_count;
+    uint16_t support_files_count;
+    uint64_t total_data_files_size;
+    uint64_t total_support_files_size;
+    DataFileInfo *dataFiles;
+    SupportFileInfo *supportFiles;
 } LUHData;
 
-// Функции для преобразования Endian
-uint32_t convert_endian_32(uint32_t value);
+// Функции преобразования порядка байтов
 uint16_t convert_endian_16(uint16_t value);
+uint32_t convert_endian_32(uint32_t value);
+uint64_t convert_endian_64(const uint8_t bytes[8]);
 
-// Основная функция парсинга файла
-int parse_file(const char *filename, LUHData *parsed_data);
+// Функция парсинга файла
+int parse_file(const char *filename, LUHData *data);
 
-// Функции для парсинга различных секций файла
-uint16_t parse_section(FILE *file, uint32_t ptr_in_words, unsigned long file_size, const char *section_name);
-uint16_t parse_data_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size, uint32_t *total_size, uint16_t *file_count);
-uint16_t parse_support_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size, uint32_t *total_size, uint16_t *file_count);
+// Функции разбора секций
+uint16_t parse_target_hw_ids(FILE *file, uint32_t ptr_in_words, unsigned long file_size, const char *section_name);
+DataFileInfo *parse_data_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size, uint16_t *count, uint64_t *totalSize);
+SupportFileInfo *parse_support_files(FILE *file, uint32_t ptr_in_words, unsigned long file_size, uint16_t *count, uint64_t *totalSize);
 
-#endif // MODULE_H
+// Функция освобождения памяти
+void free_luh_data(LUHData *data);
+
+#endif
